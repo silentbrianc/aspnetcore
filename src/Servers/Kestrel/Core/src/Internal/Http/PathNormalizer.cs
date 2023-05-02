@@ -46,7 +46,7 @@ internal static class PathNormalizer
             return rawTarget;
         }
 
-        return path.Slice(0, pathLength).GetAsciiStringNonNullCharacters();
+        return path.Slice(0, pathLength).GetAsciiString();
     }
 
     // In-place implementation of the algorithm from https://tools.ietf.org/html/rfc3986#section-5.2.4
