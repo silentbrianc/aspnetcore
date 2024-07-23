@@ -45,3 +45,10 @@ UpgradeLog.htm
 .idea
 mono_crash.*.json
 mono_crash.*.blob
+/src/submodules/googletest
+/src/Identity/samples/IdentitySample.Mvc/web.config
+/src/Components/Web.JS/dist/Release/blazor.web.js
+/src/Components/Web.JS/dist/Release/blazor.server.js
+/src/Identity/samples/IdentitySample.DefaultUI/Properties/launchSettings.json
+/src/Components/Web.JS/dist/Release/blazor.server.js
+/.gitignore
