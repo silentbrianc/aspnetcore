@@ -1,5 +1,5 @@
 ﻿@page
-@model EnableAuthenticatorModel
+@model Microsoft.AspNetCore.Identity.UI.V4.Pages.Account.Manage.Internal.EnableAuthenticatorModel
 @{
     ViewData["Title"] = "Configure authenticator app";
     ViewData["ActivePage"] = ManageNavPages.TwoFactorAuthentication;
@@ -21,10 +21,28 @@
             </p>
         </li>
         <li>
-            <p>Scan the QR Code or enter this key <kbd>@Model.SharedKey</kbd> into your two factor authenticator app. Spaces and casing do not matter.</p>
-            <div class="alert alert-info">Learn how to <a href="https://go.microsoft.com/fwlink/?Linkid=852423">enable QR code generation</a>.</div>
-            <div id="qrCode"></div>
-            <div id="qrCodeData" data-url="@Model.AuthenticatorUri"></div>
+            @if(Model.DisplayUnsecure) 
+            {
+                <div id="unsecureQRDiv">
+                    <div>Scan the QR Code or enter this key <kbd>@Model.SharedKey</kbd> into your two factor authenticator app. Spaces and casing do not matter.</div>
+                    <div id="qrCode"></div>
+                    <div id="qrCodeData" data-url="@Model.AuthenticatorUri"></div>
+                </div>
+            }
+            @if(!Model.DisplayUnsecure)
+            {
+                <div id="secureQRDiv">
+                    <div>Scan this SECURE QR Code.  It expires in 120 seconds and can only be used once, otherwise you will have to reload this page and generate a new key.</div>
+                    <div id="qrCode"></div>
+                    <div id="qrCodeData" data-url="@Model.AuthenticatorUri"></div>
+                    <br />                
+                    <form id="show-unsecure" method="post">
+                        <input type="hidden" name="formName" value="formShowUnsecure" />
+                        <button type="submit" class="btn btn-primary">Show Unsecure QR Code instead</button>
+                    </form>
+                </div>
+            }
+            <br />
         </li>
         <li>
             <p>

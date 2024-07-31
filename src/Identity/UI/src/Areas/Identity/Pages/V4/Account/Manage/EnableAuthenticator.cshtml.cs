@@ -9,6 +9,9 @@ using System.Text.Encodings.Web;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.Extensions.Logging;
+using Microsoft.AspNetCore.Identity.UI.V4.Pages.Account.Internal;
+using Microsoft.AspNetCore.Http.Extensions;
+using Microsoft.AspNetCore.Http;
 
 namespace Microsoft.AspNetCore.Identity.UI.V4.Pages.Account.Manage.Internal;
 
@@ -35,6 +38,15 @@ public class EnableAuthenticatorModel : PageModel
     ///     This API supports the ASP.NET Core Identity default UI infrastructure and is not intended to be used
     ///     directly from your code. This API may change or be removed in future releases.
     /// </summary>
+    public bool DisplayUnsecure { get; set; }
+
+    
+    /// <summary>
+    ///     This API supports the ASP.NET Core Identity default UI infrastructure and is not intended to be used
+    ///     directly from your code. This API may change or be removed in future releases.
+    /// </summary>
+    ///
+    
     [TempData]
     public string[]? RecoveryCodes { get; set; }
 
@@ -85,6 +97,7 @@ public class EnableAuthenticatorModel : PageModel
 internal sealed class EnableAuthenticatorModel<TUser> : EnableAuthenticatorModel where TUser : class
 {
     private readonly UserManager<TUser> _userManager;
+    private readonly SignInManager<TUser> _signInManager;
     private readonly ILogger<EnableAuthenticatorModel> _logger;
     private readonly UrlEncoder _urlEncoder;
 
@@ -92,10 +105,12 @@ internal sealed class EnableAuthenticatorModel<TUser> : EnableAuthenticatorModel
 
     public EnableAuthenticatorModel(
         UserManager<TUser> userManager,
+        SignInManager<TUser> signInManager,
         ILogger<EnableAuthenticatorModel> logger,
         UrlEncoder urlEncoder)
     {
         _userManager = userManager;
+        _signInManager = signInManager; 
         _logger = logger;
         _urlEncoder = urlEncoder;
     }
@@ -119,6 +134,12 @@ internal sealed class EnableAuthenticatorModel<TUser> : EnableAuthenticatorModel
         if (user == null)
         {
             return NotFound($"Unable to load user with ID '{_userManager.GetUserId(User)}'.");
+        }
+
+        if (Request.Form["formName"] == "formShowUnsecure")
+        {
+            DisplayUnsecure = true;
+            return await this.OnGetAsync();
         }
 
         if (!ModelState.IsValid)
@@ -160,6 +181,11 @@ internal sealed class EnableAuthenticatorModel<TUser> : EnableAuthenticatorModel
 
     private async Task LoadSharedKeyAndQrCodeUriAsync(TUser user)
     {
+        // Every time the page loads we need a new authenticator key in case the
+        // previously generated one was compromised, until the key is verified.
+        await _userManager.ResetAuthenticatorKeyAsync(user);
+        await _signInManager.RefreshSignInAsync(user);
+ 
         // Load the authenticator key & QR code URI to display on the form
         var unformattedKey = await _userManager.GetAuthenticatorKeyAsync(user);
         if (string.IsNullOrEmpty(unformattedKey))
@@ -171,7 +197,20 @@ internal sealed class EnableAuthenticatorModel<TUser> : EnableAuthenticatorModel
         SharedKey = FormatKey(unformattedKey!);
 
         var email = await _userManager.GetEmailAsync(user);
-        AuthenticatorUri = GenerateQrCodeUri(email!, unformattedKey!);
+        if (!DisplayUnsecure)
+        {
+            AuthenticatorUri = GenerateQrCodeUri(email!, unformattedKey!);
+        }
+        else
+        {
+            // Also stash the secure token data and create the secure URI to share
+            Guid token = Guid.NewGuid();
+            SecureMfaTokenData<TUser> td = new SecureMfaTokenData<TUser>(token, user, DateTime.Now.AddSeconds(120), AuthenticatorUri);
+            SecureMfaTokenData<TUser>.PushToken(td);
+
+            AuthenticatorUri = GenerateSecureQrCodeUri(token);
+        }
+
     }
 
     private static string FormatKey(string unformattedKey)
@@ -200,4 +239,36 @@ internal sealed class EnableAuthenticatorModel<TUser> : EnableAuthenticatorModel
             _urlEncoder.Encode(email),
             unformattedKey);
     }
+    private string GenerateSecureQrCodeUri(Guid token)
+    {
+        string SecureTokenUri = string.Empty;
+
+        //  { [X-Forwarded - Host, { 192.168.200.75:45455}]}
+        string? fwdHost = Request.Headers["X-Forwarded-Host"];
+
+        //  { [X-Forwarded - Proto, { https}]}
+        string? fwdProto = Request.Headers["X-Forwarded-Proto"];
+
+        if (!string.IsNullOrEmpty(fwdHost) || !string.IsNullOrEmpty(fwdProto))
+        {
+            SecureTokenUri = UriHelper.BuildAbsolute(fwdProto ?? string.Empty,
+                HostString.FromUriComponent(fwdHost ?? string.Empty),
+                "/Identity/Account/Manage/SecureMfaToken/" + token.ToString());
+        }
+        else
+        {
+            SecureTokenUri = UriHelper.BuildAbsolute(
+                Request.Scheme,
+                HostString.FromUriComponent(Request.Host.ToString()),
+                "/Identity/Account/Manage/SecureMfaToken/" + token.ToString());
+        }
+
+        return string.Format(
+            CultureInfo.InvariantCulture,
+            AuthenticatorUriFormat,
+            "null",
+            "null",
+            _urlEncoder.Encode(SecureTokenUri));
+    }
+
 }
