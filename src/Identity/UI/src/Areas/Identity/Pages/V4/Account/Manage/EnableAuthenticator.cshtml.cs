@@ -38,8 +38,7 @@ public class EnableAuthenticatorModel : PageModel
     ///     This API supports the ASP.NET Core Identity default UI infrastructure and is not intended to be used
     ///     directly from your code. This API may change or be removed in future releases.
     /// </summary>
-    public bool DisplayUnsecure { get; set; }
-
+    public bool DisplaySecureCode { get; set; } = true;
     
     /// <summary>
     ///     This API supports the ASP.NET Core Identity default UI infrastructure and is not intended to be used
@@ -138,7 +137,7 @@ internal sealed class EnableAuthenticatorModel<TUser> : EnableAuthenticatorModel
 
         if (Request.Form["formName"] == "formShowUnsecure")
         {
-            DisplayUnsecure = true;
+            DisplaySecureCode = false;
             return await this.OnGetAsync();
         }
 
@@ -195,22 +194,20 @@ internal sealed class EnableAuthenticatorModel<TUser> : EnableAuthenticatorModel
         }
 
         SharedKey = FormatKey(unformattedKey!);
-
         var email = await _userManager.GetEmailAsync(user);
-        if (!DisplayUnsecure)
+
+        AuthenticatorUri = GenerateQrCodeUri(email!, unformattedKey!);
+
+        if (DisplaySecureCode)
         {
-            AuthenticatorUri = GenerateQrCodeUri(email!, unformattedKey!);
-        }
-        else
-        {
-            // Also stash the secure token data and create the secure URI to share
+            // First stash the secure token data 
             Guid token = Guid.NewGuid();
             SecureMfaTokenData<TUser> td = new SecureMfaTokenData<TUser>(token, user, DateTime.Now.AddSeconds(120), AuthenticatorUri);
             SecureMfaTokenData<TUser>.PushToken(td);
 
+            // Now replace with the secure URI to share
             AuthenticatorUri = GenerateSecureQrCodeUri(token);
         }
-
     }
 
     private static string FormatKey(string unformattedKey)

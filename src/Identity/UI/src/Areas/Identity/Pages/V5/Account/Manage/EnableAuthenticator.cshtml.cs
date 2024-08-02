@@ -38,21 +38,7 @@ public class EnableAuthenticatorModel : PageModel
     ///     This API supports the ASP.NET Core Identity default UI infrastructure and is not intended to be used
     ///     directly from your code. This API may change or be removed in future releases.
     /// </summary>
-    
-    public string? SecureAuthenticatorUri { get; set; }
-
-    /// <summary>
-    ///     This API supports the ASP.NET Core Identity default UI infrastructure and is not intended to be used
-    ///     directly from your code. This API may change or be removed in future releases.
-    /// </summary>
-    public string? SecureTokenUri { get; set; }
-
-    /// <summary>
-    ///     This API supports the ASP.NET Core Identity default UI infrastructure and is not intended to be used
-    ///     directly from your code. This API may change or be removed in future releases.
-    /// </summary>
-    public bool DisplayUnsecure { get; set; }
-
+    public bool DisplaySecureCode { get; set; } = true;
     
     /// <summary>
     ///     This API supports the ASP.NET Core Identity default UI infrastructure and is not intended to be used
@@ -149,16 +135,16 @@ internal sealed class EnableAuthenticatorModel<TUser> : EnableAuthenticatorModel
             return NotFound($"Unable to load user with ID '{_userManager.GetUserId(User)}'.");
         }
 
+        if (Request.Form["formName"] == "formShowUnsecure")
+        {
+            DisplaySecureCode = false;
+            return await this.OnGetAsync();
+        }
+
         if (!ModelState.IsValid)
         {
             await LoadSharedKeyAndQrCodeUriAsync(user);
             return Page();
-        }
-
-        if (Request.Form["formName"] == "formShowUnsecure")
-        {
-            DisplayUnsecure = true;
-            return await this.OnGetAsync();
         }
 
         // Strip spaces and hyphens
@@ -208,20 +194,20 @@ internal sealed class EnableAuthenticatorModel<TUser> : EnableAuthenticatorModel
         }
 
         SharedKey = FormatKey(unformattedKey!);
-
         var email = await _userManager.GetEmailAsync(user);
+
         AuthenticatorUri = GenerateQrCodeUri(email!, unformattedKey!);
 
-        if (!DisplayUnsecure)
+        if (DisplaySecureCode)
         {
-            // Also stash the secure token data and create the secure URI to share
+            // First stash the secure token data 
             Guid token = Guid.NewGuid();
-            SecureMfaTokenData<TUser> td = new SecureMfaTokenData<TUser>(token, user, DateTime.Now.AddSeconds(90), AuthenticatorUri);
+            SecureMfaTokenData<TUser> td = new SecureMfaTokenData<TUser>(token, user, DateTime.Now.AddSeconds(120), AuthenticatorUri);
             SecureMfaTokenData<TUser>.PushToken(td);
 
-            SecureAuthenticatorUri = GenerateSecureQrCodeUri(token);
+            // Now replace with the secure URI to share
+            AuthenticatorUri = GenerateSecureQrCodeUri(token);
         }
-
     }
 
     private static string FormatKey(string unformattedKey)
@@ -252,6 +238,8 @@ internal sealed class EnableAuthenticatorModel<TUser> : EnableAuthenticatorModel
     }
     private string GenerateSecureQrCodeUri(Guid token)
     {
+        string SecureTokenUri = string.Empty;
+
         //  { [X-Forwarded - Host, { 192.168.200.75:45455}]}
         string? fwdHost = Request.Headers["X-Forwarded-Host"];
 

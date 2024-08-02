@@ -21,28 +21,26 @@
             </p>
         </li>
         <li>
-            @if(Model.DisplayUnsecure) 
+            @if(Model.DisplaySecureCode)
             {
-                <div id="unsecureQRDiv">
-                    <div>Scan the QR Code or enter this key <kbd>@Model.SharedKey</kbd> into your two factor authenticator app. Spaces and casing do not matter.</div>
-                    <div id="qrCode"></div>
-                    <div id="qrCodeData" data-url="@Model.AuthenticatorUri"></div>
-                </div>
+            <div id="secureQRDiv">
+                <div>Scan this SECURE QR Code.  It expires in 120 seconds and can only be used once, otherwise you will have to reload this page and generate a new key.</div>
+                <div id="qrCode"></div>
+                <div id="qrCodeData" data-url="@Model.AuthenticatorUri"></div>
+                <br />
+                <form id="show-unsecure" method="post">
+                    <input type="hidden" name="formName" value="formShowUnsecure" />
+                    <button type="submit" class="btn btn-primary">Show Unsecure QR Code instead</button>
+                </form>
+            </div>
             }
-            @if(!Model.DisplayUnsecure)
+            else
             {
-                <div id="secureQRDiv">
-                    <div>Scan this SECURE QR Code.  It can only be used once otherwise you will have to generate a new key.</div>
-                    <div id="qrCode"></div>
-                    <div id="qrCodeData" data-url="@Model.SecureAuthenticatorUri"></div>
-
-                    <br />
-                
-                    <form id="show-unsecure" method="post">
-                        <input type="hidden" name="formName" value="formShowUnsecure" />
-                        <button type="submit" class="btn btn-primary">Show Unsecure QR Code instead</button>
-                    </form>
-                </div>
+            <div id="unsecureQRDiv">
+                <div>Scan the QR Code or enter this key <kbd>@Model.SharedKey</kbd> into your two factor authenticator app. Spaces and casing do not matter.</div>
+                <div id="qrCode"></div>
+                <div id="qrCodeData" data-url="@Model.AuthenticatorUri"></div>
+            </div>
             }
             <br />
         </li>
