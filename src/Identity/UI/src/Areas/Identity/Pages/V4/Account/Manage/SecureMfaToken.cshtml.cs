@@ -35,6 +35,9 @@ internal sealed class SecureMfaTokenModel<TUser> : SecureMfaTokenModel where TUs
 {
     public override async Task<IActionResult> OnGetAsync(Guid? myToken)
     {
+        if (Request.Query.ContainsKey("ignore"))
+            return StatusCode(StatusCodes.Status400BadRequest);
+
         SecureMfaTokenData<TUser> t = await SecureMfaTokenData<TUser>.PopToken(myToken);
 
         if (t == null || t.ExpiresAt < DateTime.Now)

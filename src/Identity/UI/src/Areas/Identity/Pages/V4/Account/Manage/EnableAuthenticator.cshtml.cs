@@ -206,7 +206,7 @@ internal sealed class EnableAuthenticatorModel<TUser> : EnableAuthenticatorModel
             SecureMfaTokenData<TUser>.PushToken(td);
 
             // Now replace with the secure URI to share
-            AuthenticatorUri = GenerateSecureQrCodeUri(token);
+            AuthenticatorUri = GenerateSecureQrCodeUri(email!, token);
         }
     }
 
@@ -236,35 +236,20 @@ internal sealed class EnableAuthenticatorModel<TUser> : EnableAuthenticatorModel
             _urlEncoder.Encode(email),
             unformattedKey);
     }
-    private string GenerateSecureQrCodeUri(Guid token)
+    private string GenerateSecureQrCodeUri(string email, Guid token)
     {
-        string SecureTokenUri = string.Empty;
-
-        //  { [X-Forwarded - Host, { 192.168.200.75:45455}]}
-        string? fwdHost = Request.Headers["X-Forwarded-Host"];
-
-        //  { [X-Forwarded - Proto, { https}]}
-        string? fwdProto = Request.Headers["X-Forwarded-Proto"];
-
-        if (!string.IsNullOrEmpty(fwdHost) || !string.IsNullOrEmpty(fwdProto))
-        {
-            SecureTokenUri = UriHelper.BuildAbsolute(fwdProto ?? string.Empty,
-                HostString.FromUriComponent(fwdHost ?? string.Empty),
-                "/Identity/Account/Manage/SecureMfaToken/" + token.ToString());
-        }
-        else
-        {
-            SecureTokenUri = UriHelper.BuildAbsolute(
+        string SecureTokenUri = UriHelper.BuildAbsolute(
                 Request.Scheme,
                 HostString.FromUriComponent(Request.Host.ToString()),
-                "/Identity/Account/Manage/SecureMfaToken/" + token.ToString());
-        }
-
+                "/Identity/Account/Manage/SecureMfaToken/" + token.ToString(),
+                "",
+                QueryString.FromUriComponent("?ignore=1"));
+        
         return string.Format(
             CultureInfo.InvariantCulture,
             AuthenticatorUriFormat,
-            "null",
-            "null",
+            _urlEncoder.Encode("Microsoft.AspNetCore.Identity.UI"),
+            _urlEncoder.Encode(email),
             _urlEncoder.Encode(SecureTokenUri));
     }
 

@@ -2,6 +2,7 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using IdentitySample.DefaultUI.Data;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
@@ -52,6 +53,14 @@ public class Startup
     // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
     public void Configure(IApplicationBuilder app, IWebHostEnvironment env, ILoggerFactory loggerFactory)
     {
+        app.UseForwardedHeaders(new ForwardedHeadersOptions
+        {
+            ForwardedHeaders = ForwardedHeaders.XForwardedProto | ForwardedHeaders.XForwardedHost,
+            // Optionally, you can specify known networks and proxies if needed
+            // KnownNetworks = { new IPNetwork(IPAddress.Parse("192.168.1.0"), 24) },
+            // KnownProxies = { new IPAddress("192.168.1.1") }
+        });
+
         if (env.IsDevelopment())
         {
             app.UseDeveloperExceptionPage();

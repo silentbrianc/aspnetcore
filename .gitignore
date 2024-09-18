@@ -52,3 +52,4 @@ mono_crash.*.blob
 /src/Identity/samples/IdentitySample.DefaultUI/Properties/launchSettings.json
 /src/Components/Web.JS/dist/Release/blazor.server.js
 /.gitignore
+/src/Identity/UI/src/Areas/Identity/Pages/V4/Account/Manage/EnableAuthenticator.cshtml.bak
