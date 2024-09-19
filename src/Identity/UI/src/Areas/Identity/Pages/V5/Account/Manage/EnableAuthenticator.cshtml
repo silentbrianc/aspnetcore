@@ -26,7 +26,6 @@
             <div id="secureQRDiv">
                 <div>Scan this SECURE QR Code.  It expires in 120 seconds and can only be used once, otherwise you will have to reload this page and generate a new key.</div>
                 <div id="qrCode"></div>
-                <!-- The text that will be encoded in the QR code is quite long. A 250 or more pixel width and height is recommended. -->
                 <div id="qrCodeData" data-url="@Model.AuthenticatorUri"></div>
                 <br />
                 <form id="show-unsecure" method="post">
@@ -53,7 +52,6 @@
             <div class="row">
                 <div class="col-md-6">
                     <form id="send-code" method="post">
-                        <input type="hidden" name="formName" value="formConfirmation" />
                         <div class="form-floating mb-3">
                             <input asp-for="Input.Code" class="form-control" autocomplete="off" placeholder="Please enter the code."/>
                             <label asp-for="Input.Code" class="control-label form-label">Verification Code</label>
@@ -68,8 +66,12 @@
     </ol>
 </div>
 
+<!-- Uncomment this section if you are enabling QR code support per
+    "Enable QR code generation for TOTP authenticator apps in ASP.NET Core" on learn.microsoft.com
+    The text in the QR code is quite long. A pixel width and height of 250 or more is recommended in qr.js
 @section Scripts {
     <partial name="_ValidationScriptsPartial" />
     <script type="text/javascript" src="~/lib/qrcode.js"></script>
     <script type="text/javascript" src="~/js/qr.js"></script>
 }
+-->
