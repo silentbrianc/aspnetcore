@@ -101,6 +101,7 @@ internal sealed class EnableAuthenticatorModel<TUser> : EnableAuthenticatorModel
     private readonly UrlEncoder _urlEncoder;
 
     private const string AuthenticatorUriFormat = "otpauth://totp/{0}:{1}?secret={2}&issuer={0}&digits=6";
+    private const string SecureUriFormat = "otpauth://totp/?secret={0}";
 
     public EnableAuthenticatorModel(
         UserManager<TUser> userManager,
@@ -182,31 +183,49 @@ internal sealed class EnableAuthenticatorModel<TUser> : EnableAuthenticatorModel
     {
         // Every time the page loads we need a new authenticator key in case the
         // previously generated one was compromised, until the key is verified.
+        // This is critical for TOTP Secure Enrollment draft:
+        // https://datatracker.ietf.org/doc/draft-contario-totp-secure-enrollment
+        //
         await _userManager.ResetAuthenticatorKeyAsync(user);
         await _signInManager.RefreshSignInAsync(user);
- 
+
         // Load the authenticator key & QR code URI to display on the form
         var unformattedKey = await _userManager.GetAuthenticatorKeyAsync(user);
-        if (string.IsNullOrEmpty(unformattedKey))
-        {
-            await _userManager.ResetAuthenticatorKeyAsync(user);
-            unformattedKey = await _userManager.GetAuthenticatorKeyAsync(user);
-        }
 
         SharedKey = FormatKey(unformattedKey!);
         var email = await _userManager.GetEmailAsync(user);
 
         AuthenticatorUri = GenerateQrCodeUri(email!, unformattedKey!);
 
+        // Support for TOTP Secure Enrollment, IETF draft 
+        // https://datatracker.ietf.org/doc/draft-contario-totp-secure-enrollment
+        //
         if (DisplaySecureCode)
         {
-            // First stash the secure token data 
+            // First stash the legacy URI in secure token data 
             Guid token = Guid.NewGuid();
-            SecureMfaTokenData<TUser> td = new SecureMfaTokenData<TUser>(token, user, DateTime.Now.AddSeconds(120), AuthenticatorUri);
+            SecureMfaTokenData<TUser> td = new SecureMfaTokenData<TUser>(token, user,
+                DateTime.Now.AddSeconds(300), AuthenticatorUri);
             SecureMfaTokenData<TUser>.PushToken(td);
 
-            // Now replace with the secure URI to share
+            // Now replace the legacy URI with the secure URI
             AuthenticatorUri = GenerateSecureQrCodeUri(email!, token);
+
+            // TODO (silentbrianc): Add a method to UserManager to set a
+            // "IsSecureEnrollment" flag, and then set it to TRUE here because the
+            // key has been reset and not exposed to the user.
+            //
+            // TOTP Secure Enrollment draft:
+            // https://datatracker.ietf.org/doc/draft-contario-totp-secure-enrollment
+        }
+        else
+        {
+            // TODO (silentbrianc): Add a method to UserManager to set a
+            // "IsSecureEnrollment" flag, and then set it to FALSE here because
+            // now we are exposing the key in a way it could be compromised.
+            //
+            // TOTP Secure Enrollment draft:
+            // https://datatracker.ietf.org/doc/draft-contario-totp-secure-enrollment
         }
     }
 
@@ -238,18 +257,19 @@ internal sealed class EnableAuthenticatorModel<TUser> : EnableAuthenticatorModel
     }
     private string GenerateSecureQrCodeUri(string email, Guid token)
     {
+        // Support for TOTP Secure Enrollment, IETF draft 
+        // https://datatracker.ietf.org/doc/draft-contario-totp-secure-enrollment
+
         string SecureTokenUri = UriHelper.BuildAbsolute(
                 Request.Scheme,
                 HostString.FromUriComponent(Request.Host.ToString()),
                 "/Identity/Account/Manage/SecureMfaToken/" + token.ToString(),
                 "",
-                QueryString.FromUriComponent("?ignore=1"));
-        
+                QueryString.Empty);
+
         return string.Format(
             CultureInfo.InvariantCulture,
-            AuthenticatorUriFormat,
-            _urlEncoder.Encode("Microsoft.AspNetCore.Identity.UI"),
-            _urlEncoder.Encode(email),
+            SecureUriFormat,
             _urlEncoder.Encode(SecureTokenUri));
     }
 
