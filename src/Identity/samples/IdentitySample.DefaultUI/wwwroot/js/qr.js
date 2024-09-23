@@ -3,7 +3,7 @@ window.addEventListener("load", () => {
   new QRCode(document.getElementById("qrCode"),
     {
       text: uri,
-      width: 250,
-      height: 250
+      width: 300,
+      height: 300
     });
 });
