@@ -1,5 +1,5 @@
 ﻿@page
-@model EnableAuthenticatorModel
+@model Microsoft.AspNetCore.Identity.UI.V5.Pages.Account.Manage.Internal.EnableAuthenticatorModel
 @{
     ViewData["Title"] = "Configure authenticator app";
     ViewData["ActivePage"] = ManageNavPages.TwoFactorAuthentication;
@@ -21,10 +21,29 @@
             </p>
         </li>
         <li>
-            <p>Scan the QR Code or enter this key <kbd>@Model.SharedKey</kbd> into your two factor authenticator app. Spaces and casing do not matter.</p>
-            <div class="alert alert-info">Learn how to <a href="https://go.microsoft.com/fwlink/?Linkid=852423">enable QR code generation</a>.</div>
-            <div id="qrCode"></div>
-            <div id="qrCodeData" data-url="@Model.AuthenticatorUri"></div>
+            @if(Model.DisplaySecureCode)
+            {
+            <div id="secureQRDiv">
+                <div>Scan this Secure QR Code.  It expires in 5 minutes and can only be used once, otherwise you will have to reload this page to generate a new key and try again.</div>
+                <div id="qrCode"></div>
+                <div id="qrCodeData" data-url="@Model.AuthenticatorUri"></div>
+                <br />
+                <form id="show-unsecure" method="post">
+                    <input type="hidden" name="formName" value="formShowUnsecure" />
+                    <button type="submit" class="btn btn-primary">Show Unsecure QR Code instead</button>
+                </form>
+            </div>
+            }
+            else
+            {
+            <div id="unsecureQRDiv">
+                <div>Scan the QR Code or enter this key <kbd>@Model.SharedKey</kbd> into your two factor authenticator app. Spaces and casing do not matter.</div>
+                <div>Protect this key and QR Code from observation and photographic or video capture, and do not save, share, or send them in any form to prevent immediate or future compromise of your two factor key.</div>
+                <div id="qrCode"></div>
+                <div id="qrCodeData" data-url="@Model.AuthenticatorUri"></div>
+            </div>
+            }
+            <br />
         </li>
         <li>
             <p>
@@ -32,7 +51,7 @@
                 with a unique code. Enter the code in the confirmation box below.
             </p>
             <div class="row">
-                <div class="col-md-6">
+                <div class="col-xl-6">
                     <form id="send-code" method="post">
                         <div class="form-floating mb-3">
                             <input asp-for="Input.Code" class="form-control" autocomplete="off" placeholder="Please enter the code."/>
@@ -50,4 +69,10 @@
 
 @section Scripts {
     <partial name="_ValidationScriptsPartial" />
+    <!-- Uncomment the below two script lines if you are enabling QR code support per
+        "Enable QR code generation for TOTP authenticator apps in ASP.NET Core" on learn.microsoft.com
+        The string length is long for a QR code so a pixel width and height of 250 or more is recommended in qr.js
+    -->
+    <script type="text/javascript" src="~/lib/qrcode.js"></script>
+    <script type="text/javascript" src="~/js/qr.js"></script>
 }

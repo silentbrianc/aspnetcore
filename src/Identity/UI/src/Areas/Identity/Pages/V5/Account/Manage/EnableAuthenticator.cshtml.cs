@@ -9,6 +9,9 @@ using System.Text.Encodings.Web;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.Extensions.Logging;
+using Microsoft.AspNetCore.Identity.UI.V5.Pages.Account.Internal;
+using Microsoft.AspNetCore.Http.Extensions;
+using Microsoft.AspNetCore.Http;
 
 namespace Microsoft.AspNetCore.Identity.UI.V5.Pages.Account.Manage.Internal;
 
@@ -35,6 +38,14 @@ public class EnableAuthenticatorModel : PageModel
     ///     This API supports the ASP.NET Core Identity default UI infrastructure and is not intended to be used
     ///     directly from your code. This API may change or be removed in future releases.
     /// </summary>
+    public bool DisplaySecureCode { get; set; } = true;
+    
+    /// <summary>
+    ///     This API supports the ASP.NET Core Identity default UI infrastructure and is not intended to be used
+    ///     directly from your code. This API may change or be removed in future releases.
+    /// </summary>
+    ///
+    
     [TempData]
     public string[]? RecoveryCodes { get; set; }
 
@@ -85,17 +96,21 @@ public class EnableAuthenticatorModel : PageModel
 internal sealed class EnableAuthenticatorModel<TUser> : EnableAuthenticatorModel where TUser : class
 {
     private readonly UserManager<TUser> _userManager;
+    private readonly SignInManager<TUser> _signInManager;
     private readonly ILogger<EnableAuthenticatorModel> _logger;
     private readonly UrlEncoder _urlEncoder;
 
     private const string AuthenticatorUriFormat = "otpauth://totp/{0}:{1}?secret={2}&issuer={0}&digits=6";
+    private const string SecureUriFormat = "otpauth://totp/?secret={0}";
 
     public EnableAuthenticatorModel(
         UserManager<TUser> userManager,
+        SignInManager<TUser> signInManager,
         ILogger<EnableAuthenticatorModel> logger,
         UrlEncoder urlEncoder)
     {
         _userManager = userManager;
+        _signInManager = signInManager; 
         _logger = logger;
         _urlEncoder = urlEncoder;
     }
@@ -119,6 +134,12 @@ internal sealed class EnableAuthenticatorModel<TUser> : EnableAuthenticatorModel
         if (user == null)
         {
             return NotFound($"Unable to load user with ID '{_userManager.GetUserId(User)}'.");
+        }
+
+        if (Request.Form["formName"] == "formShowUnsecure")
+        {
+            DisplaySecureCode = false;
+            return await this.OnGetAsync();
         }
 
         if (!ModelState.IsValid)
@@ -160,18 +181,52 @@ internal sealed class EnableAuthenticatorModel<TUser> : EnableAuthenticatorModel
 
     private async Task LoadSharedKeyAndQrCodeUriAsync(TUser user)
     {
+        // Every time the page loads we need a new authenticator key in case the
+        // previously generated one was compromised, until the key is verified.
+        // This is critical for TOTP Secure Enrollment draft:
+        // https://datatracker.ietf.org/doc/draft-contario-totp-secure-enrollment
+        //
+        await _userManager.ResetAuthenticatorKeyAsync(user);
+        await _signInManager.RefreshSignInAsync(user);
+
         // Load the authenticator key & QR code URI to display on the form
         var unformattedKey = await _userManager.GetAuthenticatorKeyAsync(user);
-        if (string.IsNullOrEmpty(unformattedKey))
-        {
-            await _userManager.ResetAuthenticatorKeyAsync(user);
-            unformattedKey = await _userManager.GetAuthenticatorKeyAsync(user);
-        }
 
         SharedKey = FormatKey(unformattedKey!);
-
         var email = await _userManager.GetEmailAsync(user);
+
         AuthenticatorUri = GenerateQrCodeUri(email!, unformattedKey!);
+
+        // Support for TOTP Secure Enrollment, IETF draft 
+        // https://datatracker.ietf.org/doc/draft-contario-totp-secure-enrollment
+        //
+        if (DisplaySecureCode)
+        {
+            // First stash the legacy URI in secure token data 
+            Guid token = Guid.NewGuid();
+            SecureMfaTokenData<TUser> td = new SecureMfaTokenData<TUser>(token, user,
+                DateTime.Now.AddSeconds(300), AuthenticatorUri);
+            SecureMfaTokenData<TUser>.PushToken(td);
+
+            // Now replace the legacy URI with the secure URI
+            AuthenticatorUri = GenerateSecureQrCodeUri(email!, token);
+
+            // TODO (silentbrianc): Add a method to UserManager to set a
+            // "IsSecureEnrollment" flag, and then set it to TRUE here because the
+            // key has been reset and not exposed to the user.
+            //
+            // TOTP Secure Enrollment draft:
+            // https://datatracker.ietf.org/doc/draft-contario-totp-secure-enrollment
+        }
+        else
+        {
+            // TODO (silentbrianc): Add a method to UserManager to set a
+            // "IsSecureEnrollment" flag, and then set it to FALSE here because
+            // now we are exposing the key in a way it could be compromised.
+            //
+            // TOTP Secure Enrollment draft:
+            // https://datatracker.ietf.org/doc/draft-contario-totp-secure-enrollment
+        }
     }
 
     private static string FormatKey(string unformattedKey)
@@ -200,4 +255,22 @@ internal sealed class EnableAuthenticatorModel<TUser> : EnableAuthenticatorModel
             _urlEncoder.Encode(email),
             unformattedKey);
     }
+    private string GenerateSecureQrCodeUri(string email, Guid token)
+    {
+        // Support for TOTP Secure Enrollment, IETF draft 
+        // https://datatracker.ietf.org/doc/draft-contario-totp-secure-enrollment
+
+        string SecureTokenUri = UriHelper.BuildAbsolute(
+                Request.Scheme,
+                HostString.FromUriComponent(Request.Host.ToString()),
+                "/Identity/Account/Manage/SecureMfaToken/" + token.ToString(),
+                "",
+                QueryString.Empty);
+
+        return string.Format(
+            CultureInfo.InvariantCulture,
+            SecureUriFormat,
+            _urlEncoder.Encode(SecureTokenUri));
+    }
+
 }
