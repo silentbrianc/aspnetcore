@@ -33,6 +33,19 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Compile Remove="Areas\Identity\Pages\V5\Account\Manage\SecureEnrollment.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Remove="Areas\Identity\Pages\V5\Account\Manage\SecureMfaToken.cshtml" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="Areas\Identity\Pages\V4\Account\Manage\SecureMfaToken.cshtml" />
+    <Content Include="Areas\Identity\Pages\V5\Account\Manage\SecureMfaToken.cshtml" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Reference Include="Microsoft.AspNetCore.Identity" />
     <Reference Include="Microsoft.AspNetCore.Mvc" />
     <Reference Include="Microsoft.AspNetCore.StaticFiles" />

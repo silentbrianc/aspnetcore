@@ -94,4 +94,9 @@ public static class LoggerEventIds
     /// Event id when a user is logged out.
     /// </summary>
     public static readonly EventId UserLoggedOut = new EventId(17, "UserLoggedOut");
+
+    /// <summary>
+    /// Event id when two factor authenticator enrollment details are provided.
+    /// </summary>
+    public static readonly EventId TwoFAEnrollmentDetails = new EventId(18, "TwoFAEnrollmentDetails");
 }
